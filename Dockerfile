@@ -55,39 +55,15 @@ RUN apt-get update && \
       iptables \
       iproute2 \
       iputils-ping \
-      redsocks
+      gettext-base \
+      redsocks && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-RUN \
-    echo '\n\
-base {\n\
-    log_debug = off;\n\
-    log_info = on;\n\
-    log = "file:/var/log/redsocks.log";\n\
-    daemon = on;\n\
-    user = redsocks;\n\
-    group = redsocks;\n\
-    redirector = iptables;\n\
-}\n\
-redsocks {\n\
-    local_ip = 127.0.0.1;\n\
-    local_port = 1080;\n\
-    ip = socks-proxy;\n\
-    port = 1080;\n\
-    type = socks5;\n\
-}\n'\
-> /etc/redsocks.conf
-
-RUN \
-    echo '#!/bin/bash' > /entrypoint.sh && \
-    echo 'set -e' >> /entrypoint.sh && \
-    echo 'ping -c 1 -W 5 socks-proxy >/dev/null 2>&1 || { echo "ERROR: Host socks-proxy is unreachable" >&2; exit 1; }' >> /entrypoint.sh && \
-    echo 'ip link add test_dummy type dummy 2>/dev/null && ip link delete test_dummy || { echo "ERROR: Container requires --cap-add=NET_ADMIN" >&2; exit 1; }' >> /entrypoint.sh && \
-    echo 'iptables -t nat -A OUTPUT -p tcp --dport 25 -j REDIRECT --to-port 1080' >> /entrypoint.sh && \
-    echo 'iptables -t nat -A OUTPUT -p tcp --dport 465 -j REDIRECT --to-port 1080' >> /entrypoint.sh && \
-    echo 'iptables -t nat -A OUTPUT -p tcp --dport 587 -j REDIRECT --to-port 1080' >> /entrypoint.sh && \
-    echo 'redsocks' >> /entrypoint.sh && \
-    echo '' >> /entrypoint.sh && \
-    chmod 755 /entrypoint.sh
+COPY --from=builder /go/src/github.com/grafana/smtprelay/bin/smtprelay /usr/local/bin/smtprelay
+COPY redsocks-template.conf /etc/redsocks-template.conf
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod 755 /entrypoint.sh
 
 USER 0
 ENTRYPOINT ["/entrypoint.sh"]
