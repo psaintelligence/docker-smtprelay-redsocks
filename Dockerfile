@@ -52,6 +52,7 @@ FROM docker.io/debian:trixie-slim AS production
 
 RUN apt-get update && \
     apt-get install -y \
+      ca-certificates \
       iptables \
       iproute2 \
       iputils-ping \
